@@ -8,11 +8,7 @@ import { createState } from 'vstate'
 const reducers = {
   'action-name': () => {}
 }
-const reducer = (action, payload) => {
-  return reducers[action](payload)
-}
-
-export const UserProfile = createState<typeof reducers>(reducer, initialState)
+export const UserProfile = createState(reducers, initialState)
 
 
 // main.ts
