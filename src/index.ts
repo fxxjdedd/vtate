@@ -2,8 +2,8 @@ import { all as deepmerge } from 'deepmerge'
 import { reactive } from '@vue/runtime-dom'
 
 const ATOM_KEY = Symbol('__atom')
-const INJECT_KEY = '$vstate'
-let vstate: VState
+const INJECT_KEY = '$vtate'
+let vtate: Vtate
 
 type AtomName = string | symbol
 
@@ -56,7 +56,7 @@ class Atom<S extends object, R extends Reducers<S>> {
   }
 }
 
-export class VState {
+export class Vtate {
   private readonly atoms = new Map<AtomName, Atom<any, any>>()
   createAtom<S extends object, R extends Reducers<S>>(
     stateOptions: StateOptions<S, R>,
@@ -71,22 +71,22 @@ export class VState {
 
 export default {
   install(app: any) {
-    vstate = new VState()
-    app.provide(INJECT_KEY, vstate)
+    vtate = new Vtate()
+    app.provide(INJECT_KEY, vtate)
     // TODO: d.ts
     // https://github.com/vuejs/vuex/tree/4.0#typings-for-componentcustomproperties
-    app.config.globalProperties[INJECT_KEY] = vstate
+    app.config.globalProperties[INJECT_KEY] = vtate
   },
 }
 
 export function createState<S extends object, R extends Reducers<S>>(
   stateOptions: StateOptions<S, R>,
 ) {
-  if (!vstate) {
+  if (!vtate) {
     throw new Error()
   }
 
-  const atom = vstate.createAtom<S, R>(stateOptions)
+  const atom = vtate.createAtom<S, R>(stateOptions)
 
   return atom.state
 }
