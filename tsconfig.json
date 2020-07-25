@@ -15,8 +15,8 @@
     "removeComments": false,
     "jsx": "preserve",
     "lib": ["esnext", "dom"],
-    "types": ["jest", "puppeteer", "node", "@vue/reactivity"],
+    "types": ["jest"],
     "rootDir": "."
   },
-  "include": ["src", "@vue/reactivity"]
+  "include": ["src"]
 }

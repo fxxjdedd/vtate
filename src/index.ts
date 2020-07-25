@@ -1,56 +1,82 @@
-import { Ref, UnwrapRef } from '@vue/reactivity'
+import { all as deepmerge } from 'deepmerge'
 import { reactive } from '@vue/runtime-dom'
-// TODO: dispatch一个promise值
-// TODO: 不能直接reactive，因为可能这个reactive对象在非vue的环境中被使用；因此，我们需要一个hooks，来让它变成reactive
 
+const ATOM_KEY = Symbol('__atom')
 const INJECT_KEY = '$vstate'
-
-type UnwrapNestedRefs<T> = T extends Ref ? T : UnwrapRef<T>
+let vstate: VState
 
 type AtomName = string | symbol
 
-type AtomState<T extends object> = UnwrapNestedRefs<T>
+type AtomState<S extends object, R extends Reducers<S>> = S & {
+  readonly [ATOM_KEY]: Atom<S, R>
+}
 
-type AtomActions = {}
+type Reducers<S extends object> = {
+  readonly [K in ActionKey]: (
+    atomState: AtomState<S, Reducers<S>>,
+    payload?: any,
+  ) => AtomState<S, Reducers<S>>
+}
 
-class Atom<T extends object> {
-  reducers: Reducers<T>
-  state: AtomState<T>
-  constructor(reducers: Reducers<T>, initialState: T) {
+type StateOptions<S extends object, R extends Reducers<S>> = {
+  name: AtomName
+  initialState: S
+  reducers: R
+}
+
+type ActionKey = string
+
+type ActionValue<T> = keyof T & string
+
+type Actions<R> = {
+  [K in keyof R]: ActionValue<R>
+}
+
+class Atom<S extends object, R extends Reducers<S>> {
+  name: AtomName
+  reducers: R
+  state: AtomState<S, R> // 写作AtomState<S, R>会导致doRender中的类型错误，暂时没找到办法
+  actions: Actions<R> // keyof R 可能是string/number/symbol, 这里需要缩小
+  constructor(name: AtomName, reducers: R, initialState: S) {
+    this.name = name
     this.reducers = reducers
-    this.state = reactive(initialState)
+    this.state = deepmerge<any>([{ [ATOM_KEY]: this }, initialState])
+    this.actions = Object.getOwnPropertyNames(reducers).reduce(
+      (item, next: ActionValue<R>) => {
+        item[next] = next
+        return item
+      },
+      {} as Actions<R>,
+    )
   }
-  doReducer(action: string, payload?: any) {
+  doReducer(action: ActionKey, payload?: any) {
     const next = this.reducers[action](this.state, payload)
     // dev tools 时间旅行
-    this.state = next
+    this.state = next as AtomState<S, R>
   }
 }
 
 export class VState {
-  private readonly atoms = new Map<AtomName, Atom<any>>()
-  createAtom<T extends object>(stateOptions: StateOptions<T>) {
+  private readonly atoms = new Map<AtomName, Atom<any, any>>()
+  createAtom<S extends object, R extends Reducers<S>>(
+    stateOptions: StateOptions<S, R>,
+  ) {
     const { name, reducers, initialState } = stateOptions
-    const atom = new Atom<T>(reducers, initialState)
+    const atom = new Atom<S, R>(name, reducers, initialState)
     this.atoms.set(name, atom)
-    // 收集atom到一个中心的store
+    // 收集atom到一个中心的store，以后备用
     return atom
   }
 }
 
-let vstate: VState
-
-export type Reducers<T extends object> = {
-  readonly [K in string]: (
-    atomState: AtomState<T>,
-    payload?: any,
-  ) => AtomState<T>
-}
-
-type StateOptions<S extends object, R extends Reducers<S> = Reducers<S>> = {
-  name: AtomName
-  initialState: S
-  reducers: R
+export default {
+  install(app: any) {
+    vstate = new VState()
+    app.provide(INJECT_KEY, vstate)
+    // TODO: d.ts
+    // https://github.com/vuejs/vuex/tree/4.0#typings-for-componentcustomproperties
+    app.config.globalProperties[INJECT_KEY] = vstate
+  },
 }
 
 export function createState<S extends object, R extends Reducers<S>>(
@@ -60,44 +86,20 @@ export function createState<S extends object, R extends Reducers<S>>(
     throw new Error()
   }
 
-  const atom = vstate.createAtom<S>(stateOptions)
+  const atom = vstate.createAtom<S, R>(stateOptions)
 
-  function dispatch(action: keyof R, payload?: any) {
-    atom.doReducer(action as any, payload)
+  return atom.state
+}
+
+export function useState<S extends object, R extends Reducers<S>>(
+  state: AtomState<S, R>,
+) {
+  const { [ATOM_KEY]: atom, ...restState } = state
+  const reactiveState = reactive(restState)
+
+  function dispatch(action: ActionValue<typeof atom.actions>, payload?: any) {
+    atom.doReducer(action, payload)
   }
 
-  return {
-    state: atom.state,
-    dispatch,
-  }
+  return [reactiveState, dispatch, atom.actions] as const
 }
-
-export default {
-  install(app: any) {
-    vstate = new VState()
-    app.provide(INJECT_KEY, vstate)
-    // https://github.com/vuejs/vuex/tree/4.0#typings-for-componentcustomproperties
-    app.config.globalProperties[INJECT_KEY] = vstate
-  },
-}
-
-/////////////////使用
-
-const initialState = {
-  username: 'futengda',
-}
-
-const { state, dispatch, actions } = createState({
-  name: 'userinfo',
-  initialState,
-  reducers: {
-    updateName: (state, payload) => {
-      return {
-        ...state,
-        name: payload,
-      }
-    },
-  },
-})
-
-dispatch('updateName', 456)
