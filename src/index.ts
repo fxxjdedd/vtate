@@ -12,11 +12,13 @@ type AtomState<S extends object, R extends Reducers<S>> = S & {
   readonly [ATOM_KEY]: Atom<S, R>
 }
 
+type ReducerHandler<S extends object, P extends Payload = Payload> = (
+  atomState: AtomState<S, Reducers<S>>,
+  payload?: P,
+) => AtomState<S, Reducers<S>> | void
+
 type Reducers<S extends object> = {
-  readonly [K in ActionKey]: (
-    atomState: AtomState<S, Reducers<S>>,
-    payload?: Payload,
-  ) => AtomState<S, Reducers<S>> | void
+  readonly [K in ActionKey]: ReducerHandler<S>
 }
 
 type StateOptions<S extends object, R extends Reducers<S>> = {
@@ -96,9 +98,12 @@ export function useDispatch<S extends object, R extends Reducers<S>>(
 ) {
   const { [ATOM_KEY]: atom } = state
 
-  function dispatch(
-    action: ActionValue<typeof atom.actions>,
-    payload?: Payload,
+  type ReducersType = typeof atom.reducers
+  type ActionsType = typeof atom.actions
+
+  function dispatch<A extends ActionValue<ActionsType>>(
+    action: A,
+    payload?: ReducersType[A] extends ReducerHandler<S, infer P> ? P : unknown,
   ) {
     atom.doReducer(action, payload)
   }
