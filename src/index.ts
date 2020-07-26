@@ -1,9 +1,10 @@
 import { all as deepmerge } from 'deepmerge'
-import { reactive } from '@vue/runtime-dom'
+import { App, reactive } from '@vue/runtime-dom'
 
 const ATOM_KEY = Symbol('__atom')
 const INJECT_KEY = '$vtate'
-let vtate: Vtate
+
+type Payload = any
 
 type AtomName = string | symbol
 
@@ -14,7 +15,7 @@ type AtomState<S extends object, R extends Reducers<S>> = S & {
 type Reducers<S extends object> = {
   readonly [K in ActionKey]: (
     atomState: AtomState<S, Reducers<S>>,
-    payload?: any,
+    payload?: Payload,
   ) => AtomState<S, Reducers<S>>
 }
 
@@ -49,7 +50,7 @@ class Atom<S extends object, R extends Reducers<S>> {
       {} as Actions<R>,
     )
   }
-  doReducer(action: ActionKey, payload?: any) {
+  doReducer(action: ActionKey, payload?: Payload) {
     const next = this.reducers[action](this.state, payload)
     // dev tools 时间旅行
     this.state = next as AtomState<S, R>
@@ -69,9 +70,10 @@ export class Vtate {
   }
 }
 
+const vtate = new Vtate()
+
 export default {
-  install(app: any) {
-    vtate = new Vtate()
+  install(app: App) {
     app.provide(INJECT_KEY, vtate)
     // TODO: d.ts
     // https://github.com/vuejs/vuex/tree/4.0#typings-for-componentcustomproperties
@@ -97,7 +99,10 @@ export function useState<S extends object, R extends Reducers<S>>(
   const { [ATOM_KEY]: atom, ...restState } = state
   const reactiveState = reactive(restState)
 
-  function dispatch(action: ActionValue<typeof atom.actions>, payload?: any) {
+  function dispatch(
+    action: ActionValue<typeof atom.actions>,
+    payload?: Payload,
+  ) {
     atom.doReducer(action, payload)
   }
 
