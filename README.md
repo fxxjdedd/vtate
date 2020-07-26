@@ -1,18 +1,24 @@
-# vstate
-Decentralized state management tool for vue3, which has perfect type hints and type verification.
+# Vtate
+A type-safe decentralized state management tool for vue3.
 
-# 特点
-- 面向Vue3
-- 相比手写有更好的类型提示
-- 提供reducer功能，整合状态变化
-- 提供全局管理功能
+# Motivation
+
+With the use of Composition API, business logic and state are gradually decentralized. The centralized state management tool (vuex) will become a burden. On the other hand, many people are now using Vue3's `reactive-api` to build stores, which reduced a lot of boilerplate code. But too flexible code can easily bring disasters in code maintainability and readability.
+
+Therefore, I think there should be a tool to constrain the process of creating stores. It should combine the advantages of `vue3` and `vuex`, be flexible, and have rules to follow.
+
+# Features
+- Create store easily
+- Modify data by dispatching an action
 
 # Usage
-```js
-// user-profile.ts
+
+```jsx
+// userProfile.js
 import { createState } from 'vtate'
-export const userProfileState = createState({
-  name: 'userinfo',
+
+export const userProfile = createState({
+  name: 'userInfo',
   initialState: {
     username: 'futengda',
   },
@@ -23,39 +29,37 @@ export const userProfileState = createState({
   },
 })
 
-// a.ts
-import { userProfileState } from 'vtate'
-import { userProfile } from './user-profile'
+// main.js
+import { useDispatch } from 'vtate'
+import { userProfile } from './userProfile'
 
 export default {
   setup() {
-    const [userProfile] = useState(userProfileState)
-    return () => <div>{userProfile.username}</div>
-  }
-}
+    const [dispatch, actions] = useDispatch(userProfile)
 
-// b.ts
-import { userProfileState } from 'vstate'
-import { userProfile } from './user-profile'
+    function changeUserName() {
+      // directly use string as action-name
+      dispatch('updateName', 'fxxjdedd')
 
-export default {
-  setup() {
-    const [_, dispatch, actions] = useState(userProfileState)
-    function onClick() {
+      // or, use actions.x to get action-name
       dispatch(actions.updateName, 'fxxjdedd')
+
+      // or,directly modify reactive state
+      userProfile.username = 'fxxjdedd'
     }
+
     return () => {
-      return <button onClick={onClick}>change username</button>
+      return (
+        <div>
+          username: {userProfile.username} <br/>
+          <button onClick={changeUserName}>click</button>
+        </div>
+      )
     }
   }
 }
 
 ```
-
-# Todo
-
-- [ ] support dispatch a promise
-- [ ] support global api
 
 # License
 MIT
