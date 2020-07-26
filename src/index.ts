@@ -16,7 +16,7 @@ type Reducers<S extends object> = {
   readonly [K in ActionKey]: (
     atomState: AtomState<S, Reducers<S>>,
     payload?: Payload,
-  ) => AtomState<S, Reducers<S>>
+  ) => AtomState<S, Reducers<S>> | void
 }
 
 type StateOptions<S extends object, R extends Reducers<S>> = {
@@ -58,7 +58,8 @@ class Atom<S extends object, R extends Reducers<S>> {
 }
 
 export class Vtate {
-  private readonly atoms = new Map<AtomName, Atom<any, any>>()
+  private readonly atoms = new Map<AtomName, Atom<any, Reducers<any>>>()
+  // readonly accessor = new Accessor(this.atoms)
   createAtom<S extends object, R extends Reducers<S>>(
     stateOptions: StateOptions<S, R>,
   ) {
@@ -81,23 +82,19 @@ export default {
   },
 }
 
-export function createState<S extends object, R extends Reducers<S>>(
-  stateOptions: StateOptions<S, R>,
-) {
-  if (!vtate) {
-    throw new Error()
-  }
-
+export function createState<
+  S extends object,
+  R extends Reducers<S> = Reducers<S>
+>(stateOptions: StateOptions<S, R>) {
   const atom = vtate.createAtom<S, R>(stateOptions)
 
-  return atom.state
+  return reactive(atom.state)
 }
 
-export function useState<S extends object, R extends Reducers<S>>(
+export function useDispatch<S extends object, R extends Reducers<S>>(
   state: AtomState<S, R>,
 ) {
-  const { [ATOM_KEY]: atom, ...restState } = state
-  const reactiveState = reactive(restState)
+  const { [ATOM_KEY]: atom } = state
 
   function dispatch(
     action: ActionValue<typeof atom.actions>,
@@ -106,5 +103,5 @@ export function useState<S extends object, R extends Reducers<S>>(
     atom.doReducer(action, payload)
   }
 
-  return [reactiveState, dispatch, atom.actions] as const
+  return [dispatch, atom.actions] as const
 }
