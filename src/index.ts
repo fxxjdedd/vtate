@@ -40,10 +40,10 @@ class Atom<S extends object, R extends Reducers<S>> {
   reducers: R
   state: AtomState<S, R> // 写作AtomState<S, R>会导致doRender中的类型错误，暂时没找到办法
   actions: Actions<R> // keyof R 可能是string/number/symbol, 这里需要缩小
+
   constructor(name: AtomName, reducers: R, initialState: S) {
     this.name = name
     this.reducers = reducers
-    this.state = deepmerge<any>([{ [ATOM_KEY]: this }, initialState])
     this.actions = Object.getOwnPropertyNames(reducers).reduce(
       (item, next: ActionValue<R>) => {
         item[next] = next
@@ -51,11 +51,18 @@ class Atom<S extends object, R extends Reducers<S>> {
       },
       {} as Actions<R>,
     )
+    this.state = (() => {
+      const cloned = reactive(
+        deepmerge<any>([{}, initialState]),
+      )
+      cloned[ATOM_KEY] = this
+      return cloned
+    })()
   }
+
   doReducer(action: ActionKey, payload?: Payload) {
-    const next = this.reducers[action](this.state, payload)
-    // dev tools 时间旅行
-    this.state = next as AtomState<S, R>
+    // dev tools time travel?
+    this.reducers[action](this.state, payload)
   }
 }
 
@@ -89,8 +96,7 @@ export function createState<
   R extends Reducers<S> = Reducers<S>
 >(stateOptions: StateOptions<S, R>) {
   const atom = vtate.createAtom<S, R>(stateOptions)
-
-  return reactive(atom.state)
+  return atom.state
 }
 
 export function useDispatch<S extends object, R extends Reducers<S>>(
