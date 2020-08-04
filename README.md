@@ -11,6 +11,12 @@ Therefore, I think there should be a tool to constrain the process of creating s
 - Create store easily
 - Modify data by dispatching an action
 
+# Install
+
+```bash
+yarn add vtate
+```
+
 # Usage
 
 ```jsx
